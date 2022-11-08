@@ -1,0 +1,104 @@
+
+close all; clear all; clc
+
+%% Load the Imagedatabase
+ds = imageDatastore("C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/");
+Filenames = ds.Files;
+nFiles = numel(Filenames);
+
+%% Load Validation sheet
+valdata = readtable("C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx");
+
+
+%% initializse Parameters
+AreaPixel = 1.34e-5;
+DrillDia = 6;           % Drill Diameter in [mm]
+
+Area_F_Skript = zeros(size(valdata,1),1);
+Deviation_abs = zeros(size(valdata,1),1);
+Deviation_rel = zeros(size(valdata,1),1);
+Dev_smaller_15_perc = zeros(size(valdata,1),1);
+valdata = addvars(valdata,Area_F_Skript,Deviation_abs,Deviation_rel,Dev_smaller_15_perc);           %add the new variable for calculated Area Fiber
+
+% start the analysation
+% for l=1:nFiles
+l= 1;
+
+close all;
+%% load Image
+I = readimage(ds,l);
+
+%% Convert into gray scale image
+I = im2gray(I);
+
+Iadapt = imbinarize(I,"adaptive","ForegroundPolarity","dark"); 
+
+%% Identify the boreholes
+[centers,radii] = imfindcircles(Iadapt,[800 900],'ObjectPolarity','bright','Sensitivity',0.995);
+
+nearest_rad =abs(6-2.*radii*sqrt(AreaPixel));
+[~, radiusID]= min(nearest_rad);     % if more circles are found, choose the one nearest to diameter of the drill
+radius = radii(radiusID);
+center = centers(radiusID,:);
+radius = radius-2;                  % adjustments of the circle (one does not want the boundarys of the circle included
+
+phi = linspace(0,2*pi,1000);
+x = center(1) + cos(phi)*radius;
+y = center(2) + sin(phi)*radius;
+
+%% Create a mask for the borehole
+maskfilter = poly2mask(x,y,height(I),length(I));
+
+masked = I;
+masked(~maskfilter) = 160;          % 160 is the brightness value near to the borehole boarder
+
+Faser = masked <=70;
+Faser = imfill(Faser,"holes");
+
+Iedge = edge(Iadapt,"prewitt");
+Faser(Iedge) = 1;
+Faser(~maskfilter) = 0;
+Faser = imfill(Faser,"holes");
+
+Faser = imfilter(Faser,fspecial("average",[5 5]));
+
+Boundaries = bwboundaries(Faser);
+
+Area = [];
+for i=1:size(Boundaries,1)
+Area(i,1) = size(Boundaries{i,1},1);
+end
+
+[AreaSort, SortID] = sort(Area);
+% AreaFiberPix = Area(SortID(round(length(SortID)/100*95):end));     %nur die größten 5 % werden übernommen    
+AreaFiberPix = Area(Area>80);                                        % nur die Flächen mit einer größeren Elementfläche wie 80 werden übernommen   
+
+FaserNew = zeros(height(I),length(I));
+for i= 1:length(AreaFiberPix)
+Patch = cell2mat(Boundaries(SortID(end+1-i)));
+
+for k= 1:length(Patch)
+FaserNew(Patch(k,1),Patch(k,2)) =1;
+end
+
+
+end
+FaserNew = imfill(FaserNew,"holes");
+
+%% save the data calculated
+valdata.Area_F_Skript(l) = sum(FaserNew,"all")*AreaPixel;
+valdata.Deviation_abs(l) = valdata.Area_F_mm2_(l)-valdata.Area_F_Skript(l);
+valdata.Deviation_rel(l) = abs(valdata.Deviation_abs(l))/valdata.Area_F_mm2_(l);
+valdata.Dev_smaller_15_perc(l) = valdata.Deviation_rel(l)< 0.15;
+%% save the images in the workspace
+% fig = gcf;
+% imshowpair(FaserNew,I);
+% imagesave(:,:,:,l)= frame2im(getframe(gcf));
+
+%% safe the image to the explorer
+% imwrite(imagesave(:,:,:,l),"C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet/B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
+% 
+% end
+% 
+% montage(dsbea.Files,"BackgroundColor","w")
+
