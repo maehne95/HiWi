@@ -1,13 +1,20 @@
 
 close all; clear all; clc
+%% load paths
 
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/Bilder 1/";
+valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx";
+
+%% save paths
+
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet_v2/";
 %% Load the Imagedatabase
-ds = imageDatastore("C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/");
+ds = imageDatastore(folderanalysingimages);
 Filenames = ds.Files;
 nFiles = numel(Filenames);
 
 %% Load Validation sheet
-valdata = readtable("C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx");
+valdata = readtable(valsheetexcel);
 
 
 %% initializse Parameters
@@ -100,9 +107,9 @@ imshowpair(I,FaserNew);
 imagesave(:,:,:,l)= frame2im(getframe(gcf));
 
 %% safe the image to the explorer
-imwrite(imagesave(:,:,:,l),"C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet_v2/B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
+imwrite(imagesave(:,:,:,l),folderanalysedimages"B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
 % 
 end
-save("C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet_v2/valsheet_v2.mat","valdata");
+save(folderanalysedimages + "valsheet_v2.mat","valdata");
 % montage(dsbea.Files,"BackgroundColor","w")
 
