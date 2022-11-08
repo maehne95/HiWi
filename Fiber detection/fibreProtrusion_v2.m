@@ -1,13 +1,13 @@
 
 close all; clear all; clc
 %% load paths
-
-folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/Bilder 1/";
-valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx";
+for hallo =3:9
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/"+hallo+"/";
+valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\"+hallo+".xlsx";
 
 %% save paths
 
-folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet_v2/";
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/"+hallo+"/bearbeitet/";
 %% Load the Imagedatabase
 ds = imageDatastore(folderanalysingimages);
 Filenames = ds.Files;
@@ -107,9 +107,11 @@ imshowpair(I,FaserNew);
 imagesave(:,:,:,l)= frame2im(getframe(gcf));
 
 %% safe the image to the explorer
-imwrite(imagesave(:,:,:,l),folderanalysedimages"B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
+imwrite(imagesave(:,:,:,l),folderanalysedimages+ "B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
 % 
 end
-save(folderanalysedimages + "valsheet_v2.mat","valdata");
+meansqrterr =immse(valdata.Area_F_mm2_,valdata.Area_F_Skript);
+save(folderanalysedimages + "valsheet.mat","valdata","meansqrterr");
 % montage(dsbea.Files,"BackgroundColor","w")
 
+end
