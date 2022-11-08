@@ -1,13 +1,13 @@
 
 close all; clear all; clc
 %% load paths
-for hallo =3:9
-folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/"+hallo+"/";
-valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\"+hallo+".xlsx";
+
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/";
+valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx";
 
 %% save paths
 
-folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/"+hallo+"/bearbeitet/";
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet/";
 %% Load the Imagedatabase
 ds = imageDatastore(folderanalysingimages);
 Filenames = ds.Files;
@@ -114,4 +114,4 @@ meansqrterr =immse(valdata.Area_F_mm2_,valdata.Area_F_Skript);
 save(folderanalysedimages + "valsheet.mat","valdata","meansqrterr");
 % montage(dsbea.Files,"BackgroundColor","w")
 
-end
+
