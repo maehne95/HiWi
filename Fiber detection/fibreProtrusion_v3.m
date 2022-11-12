@@ -1,12 +1,13 @@
+
 close all; clear all; clc
 %% load paths
 
-folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/";
-valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx";
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/2/";
+valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\2.xlsx";
 
 %% save paths
 
-folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet/";
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/2/2_analysed/";
 %% Load the Imagedatabase
 ds = imageDatastore(folderanalysingimages);
 Filenames = ds.Files;
@@ -19,6 +20,7 @@ valdata = readtable(valsheetexcel);
 %% initializse Parameters
 AreaPixel = 1.34e-5;            
 DrillDia = 6;           % Drill Diameter in [mm]
+boolfiber = 1;
 
 Area_F_Skript = zeros(size(valdata,1),1);
 Deviation_abs = zeros(size(valdata,1),1);
@@ -28,6 +30,8 @@ valdata = addvars(valdata,Area_F_Skript,Deviation_abs,Deviation_rel,Dev_smaller_
 
 % start the analysation
 for l=1:nFiles
+% l = 4;
+gradpara = 0.025;
 
 
 close all;
@@ -41,7 +45,7 @@ Idouble = im2double(I);
 [px,py] = gradient(Idouble);
 pz= sqrt(px.^2+py.^2);
 
-gradedge = pz>0.025;                 % 0.05 was impirically tested
+
 
 %% Identify the boreholes
 
@@ -63,6 +67,10 @@ maskfilter = poly2mask(x,y,height(I),length(I));
 
 masked = I;
 masked(~maskfilter) = 200;          % 160 is the brightness value near to the borehole boarder
+
+while and(boolfiber, gradpara <= 1)
+gradpara = gradpara +0.005;
+gradedge = pz>gradpara;                 % 0.05 was impirically tested
 
 Faser = masked <=70;
 gradedge(Faser)=1;
@@ -100,6 +108,9 @@ valdata.Area_F_Skript(l) = sum(FaserNew,"all")*AreaPixel;
 valdata.Deviation_abs(l) = valdata.Area_F_mm2_(l)-valdata.Area_F_Skript(l);
 valdata.Deviation_rel(l) = abs(valdata.Deviation_abs(l))/valdata.Area_F_mm2_(l);
 valdata.Dev_smaller_15_perc(l) = valdata.Deviation_rel(l)< 0.15;
+boolfiber = valdata.Area_F_Skript(l) >= 0.95*pi*1/4*DrillDia^2;
+
+end 
 %% save the images in the workspace
 % fig = gcf;
 imshowpair(I,FaserNew);
@@ -107,8 +118,11 @@ imagesave(:,:,:,l)= frame2im(getframe(gcf));
 
 %% safe the image to the explorer
 imwrite(imagesave(:,:,:,l),folderanalysedimages+ "B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
-% 
+
+
 end
 meansqrterr =immse(valdata.Area_F_mm2_,valdata.Area_F_Skript);
 save(folderanalysedimages + "valsheet.mat","valdata","meansqrterr");
 % montage(dsbea.Files,"BackgroundColor","w")
+
+
