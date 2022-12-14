@@ -1,0 +1,118 @@
+close all; clear all; clc
+%% load paths
+
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/";
+valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx";
+
+%% save paths
+
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1\bearbeitet_Delamination\";
+%% Load the Imagedatabase
+ds = imageDatastore(folderanalysingimages);
+Filenames = ds.Files;
+nFiles = numel(Filenames);
+
+%% Load Validation sheet
+valdata = readtable(valsheetexcel);
+
+
+%% initializse Parameters
+AreaPixel = 1.34e-5;            
+DrillDia = 6;           % Drill Diameter in [mm]
+
+Area_F_Skript = zeros(size(valdata,1),1);
+Deviation_abs = zeros(size(valdata,1),1);
+Deviation_rel = zeros(size(valdata,1),1);
+Dev_smaller_15_perc = zeros(size(valdata,1),1);
+valdata = addvars(valdata,Area_F_Skript,Deviation_abs,Deviation_rel,Dev_smaller_15_perc);           %add the new variable for calculated Area Fiber
+
+% start the analysation
+% for l=1:nFiles
+l =1;
+
+close all;
+%% load Image
+I = readimage(ds,l);
+
+%% Convert into gray scale image
+Igr = im2gray(I);
+
+Idouble = im2double(Igr);
+[px,py] = gradient(Idouble);
+pz= sqrt(px.^2+py.^2);
+
+gradedge = pz>0.04;                 % 0.05 was impirically tested
+
+%% Identify the boreholes
+
+Iadapt = imbinarize(Igr,"adaptive","ForegroundPolarity","dark"); 
+[centers,radii] = imfindcircles(Iadapt,[800 900],'ObjectPolarity','bright','Sensitivity',0.995);
+
+nearest_rad =abs(6-2.*radii*sqrt(AreaPixel));
+[~, radiusID]= min(nearest_rad);     % if more circles are found, choose the one nearest to diameter of the drill
+radius = radii(radiusID);
+center = centers(radiusID,:);
+radius = radius-5;                  % adjustments of the circle (one does not want the boundarys of the circle included
+
+phi = linspace(0,2*pi,1000);
+x = center(1) + cos(phi)*radius;
+y = center(2) + sin(phi)*radius;
+
+%% Create a mask for the borehole
+maskfilter = poly2mask(x,y,height(Igr),length(Igr));
+
+red_comp = I(:,:,1)>I(:,:,2) & I(:,:,1)>I(:,:,3);
+red_comp(maskfilter) = 0;
+red_comp = imfilter(red_comp,fspecial("average",[5 5]));
+
+gradedge = imfilter(gradedge,fspecial("average",[5 5]));
+gradedge(maskfilter) = 0;          % 160 is the brightness value near to the borehole boarder
+
+% Faser = masked <=70;
+% gradedge(Faser)=1;
+% gradedge(~maskfilter) = 0;
+
+% Faser = imfill(gradedge,"holes");
+% 
+% Faser = imfilter(Faser,fspecial("average",[5 5]));
+% 
+% Boundaries = bwboundaries(Faser);
+% 
+% Area = [];
+% for i=1:size(Boundaries,1)
+% Area(i,1) = size(Boundaries{i,1},1);
+% end
+% 
+% [AreaSort, SortID] = sort(Area);
+% AreaFiberPix = Area(SortID(round(length(SortID)/100*95):end));     %nur die größten 5 % werden übernommen    
+% AreaFiberPix = Area(Area>80);                                        % nur die Flächen mit einer größeren Elementfläche wie 80 werden übernommen   
+% 
+% FaserNew = zeros(height(I),length(I));
+% for i= 1:length(AreaFiberPix)
+% Patch = cell2mat(Boundaries(SortID(end+1-i)));
+% 
+% for k= 1:length(Patch)
+% FaserNew(Patch(k,1),Patch(k,2)) =1;
+% end
+% 
+% 
+% end
+% FaserNew = imfill(FaserNew,"holes");
+% 
+% % save the data calculated
+% valdata.Area_F_Skript(l) = sum(FaserNew,"all")*AreaPixel;
+% valdata.Deviation_abs(l) = valdata.Area_F_mm2_(l)-valdata.Area_F_Skript(l);
+% valdata.Deviation_rel(l) = abs(valdata.Deviation_abs(l))/valdata.Area_F_mm2_(l);
+% valdata.Dev_smaller_15_perc(l) = valdata.Deviation_rel(l)< 0.15;
+% % save the images in the workspace
+% fig = gcf;
+% imshowpair(I,FaserNew);
+% imagesave(:,:,:,l)= frame2im(getframe(gcf));
+% 
+% % safe the image to the explorer
+% imwrite(imagesave(:,:,:,l),folderanalysedimages+ "B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
+% 
+% end
+% meansqrterr =immse(valdata.Area_F_mm2_,valdata.Area_F_Skript);
+% save(folderanalysedimages + "valsheet.mat","valdata","meansqrterr");
+% montage(dsbea.Files,"BackgroundColor","w")

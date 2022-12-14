@@ -1,12 +1,12 @@
 close all; clear all; clc
 %% load paths
 
-folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/";
-valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\1.xlsx";
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/2/";
+valsheetexcel ="C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\2.xlsx";
 
 %% save paths
 
-folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/1/bearbeitet/";
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\2\2_analysed\";
 %% Load the Imagedatabase
 ds = imageDatastore(folderanalysingimages);
 Filenames = ds.Files;
@@ -41,7 +41,7 @@ Idouble = im2double(I);
 [px,py] = gradient(Idouble);
 pz= sqrt(px.^2+py.^2);
 
-gradedge = pz>0.025;                 % 0.05 was impirically tested
+
 
 %% Identify the boreholes
 
@@ -58,42 +58,52 @@ phi = linspace(0,2*pi,1000);
 x = center(1) + cos(phi)*radius;
 y = center(2) + sin(phi)*radius;
 
-%% Create a mask for the borehole
-maskfilter = poly2mask(x,y,height(I),length(I));
+Area_F = 28;
+gradsetting = 0.02;
 
-masked = I;
-masked(~maskfilter) = 200;          % 160 is the brightness value near to the borehole boarder
+while and(Area_F >= 28,gradsetting<1)
+    %% Create a mask for the borehole
+    maskfilter = poly2mask(x,y,height(I),length(I));
 
-Faser = masked <=70;
-gradedge(Faser)=1;
-gradedge(~maskfilter) = 0;
+    masked = I;
+    masked(~maskfilter) = 200;          % 160 is the brightness value near to the borehole boarder
 
-Faser = imfill(gradedge,"holes");
+    Faser = masked <=70;
+    
+    gradsetting = gradsetting+0.005;
+    gradedge = pz>gradsetting;                 % 0.05 was impirically teste
+    gradedge(Faser)=1;
+    gradedge(~maskfilter) = 0;
 
-Faser = imfilter(Faser,fspecial("average",[5 5]));
+    Faser = imfill(gradedge,"holes");           % filling holes
 
-Boundaries = bwboundaries(Faser);
+    Faser = imfilter(Faser,fspecial("average",[5 5]));      %filtering 
 
-Area = [];
-for i=1:size(Boundaries,1)
-Area(i,1) = size(Boundaries{i,1},1);
-end
+    Boundaries = bwboundaries(Faser);
 
-[AreaSort, SortID] = sort(Area);
-% AreaFiberPix = Area(SortID(round(length(SortID)/100*95):end));     %nur die größten 5 % werden übernommen    
-AreaFiberPix = Area(Area>80);                                        % nur die Flächen mit einer größeren Elementfläche wie 80 werden übernommen   
+    Area = [];
+        
+        for i=1:size(Boundaries,1)
+        Area(i,1) = size(Boundaries{i,1},1);
+        end
 
-FaserNew = zeros(height(I),length(I));
-for i= 1:length(AreaFiberPix)
-Patch = cell2mat(Boundaries(SortID(end+1-i)));
+    [AreaSort, SortID] = sort(Area);
+    % AreaFiberPix = Area(SortID(round(length(SortID)/100*95):end));     %nur die größten 5 % werden übernommen    
+    AreaFiberPix = Area(Area>80);                                        % nur die Flächen mit einer größeren Elementfläche wie 80 werden übernommen   
 
-for k= 1:length(Patch)
-FaserNew(Patch(k,1),Patch(k,2)) =1;
-end
+    
+    FaserNew = zeros(height(I),length(I));
+        for i= 1:length(AreaFiberPix)
+        Patch = cell2mat(Boundaries(SortID(end+1-i)));
 
+            for k= 1:length(Patch)
+            FaserNew(Patch(k,1),Patch(k,2)) =1;
+            end
+        end
 
-end
-FaserNew = imfill(FaserNew,"holes");
+    FaserNew = imfill(FaserNew,"holes");
+    Area_F = sum(FaserNew,"all")*AreaPixel;
+end 
 
 %% save the data calculated
 valdata.Area_F_Skript(l) = sum(FaserNew,"all")*AreaPixel;
@@ -108,7 +118,7 @@ imagesave(:,:,:,l)= frame2im(getframe(gcf));
 %% safe the image to the explorer
 imwrite(imagesave(:,:,:,l),folderanalysedimages+ "B"+valdata.BoreHoleNo_(l)+"_bearbeitet.tif");
 % 
-end
+ end
 meansqrterr =immse(valdata.Area_F_mm2_,valdata.Area_F_Skript);
 save(folderanalysedimages + "valsheet.mat","valdata","meansqrterr");
 % montage(dsbea.Files,"BackgroundColor","w")
