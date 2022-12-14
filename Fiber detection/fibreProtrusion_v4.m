@@ -1,0 +1,116 @@
+close all; clear all; clc
+%% load paths
+
+folderanalysingimages =  "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände/2/";
+
+%% save paths
+
+folderanalysedimages = "C:\Users\joshu\Documents\Arbeit\HiWi\Faserüberstände\2\2_analysed\";
+%% Load the Imagedatabase
+ds = imageDatastore(folderanalysingimages);
+Filenames = ds.Files;
+nFiles = numel(Filenames);
+
+
+%% initializse Parameters
+AreaPixel = 1.34e-5;            
+DrillDia = 6;           % Drill Diameter in [mm]
+
+Area_F_Skript = [];
+
+
+% start the analysation
+for l=1:nFiles
+
+
+close all;
+%% load Image
+I = readimage(ds,l);
+
+%% Convert into gray scale image
+I = im2gray(I);
+
+Idouble = im2double(I);
+[px,py] = gradient(Idouble);
+pz= sqrt(px.^2+py.^2);
+
+
+
+%% Identify the boreholes
+
+Iadapt = imbinarize(I,"adaptive","ForegroundPolarity","dark"); 
+[centers,radii] = imfindcircles(Iadapt,[800 900],'ObjectPolarity','bright','Sensitivity',0.995);
+
+nearest_rad =abs(6-2.*radii*sqrt(AreaPixel));
+[~, radiusID]= min(nearest_rad);     % if more circles are found, choose the one nearest to diameter of the drill
+radius = radii(radiusID);
+center = centers(radiusID,:);
+radius = radius-5;                  % adjustments of the circle (one does not want the boundarys of the circle included
+
+phi = linspace(0,2*pi,1000);
+x = center(1) + cos(phi)*radius;
+y = center(2) + sin(phi)*radius;
+
+Area_F = 28;
+gradsetting = 0.02;
+
+while and(Area_F >= 28,gradsetting<1)
+    %% Create a mask for the borehole
+    maskfilter = poly2mask(x,y,height(I),length(I));
+
+    masked = I;
+    masked(~maskfilter) = 200;          % 160 is the brightness value near to the borehole boarder
+
+    Faser = masked <=70;
+    
+    gradsetting = gradsetting+0.005;
+    gradedge = pz>gradsetting;                 % 0.05 was impirically teste
+    gradedge(Faser)=1;
+    gradedge(~maskfilter) = 0;
+
+    Faser = imfill(gradedge,"holes");           % filling holes
+
+    Faser = imfilter(Faser,fspecial("average",[5 5]));      %filtering 
+
+    Boundaries = bwboundaries(Faser);
+
+    Area = [];
+        
+        for i=1:size(Boundaries,1)
+        Area(i,1) = size(Boundaries{i,1},1);
+        end
+
+    [AreaSort, SortID] = sort(Area);
+    % AreaFiberPix = Area(SortID(round(length(SortID)/100*95):end));     %nur die größten 5 % werden übernommen    
+    AreaFiberPix = Area(Area>80);                                        % nur die Flächen mit einer größeren Elementfläche wie 80 werden übernommen   
+
+    
+    FaserNew = zeros(height(I),length(I));
+        for i= 1:length(AreaFiberPix)
+        Patch = cell2mat(Boundaries(SortID(end+1-i)));
+
+            for k= 1:length(Patch)
+            FaserNew(Patch(k,1),Patch(k,2)) =1;
+            end
+        end
+
+    FaserNew = imfill(FaserNew,"holes");
+    Area_F = sum(FaserNew,"all")*AreaPixel;
+end 
+
+%% save the data calculated
+AreaFaser(l) = sum(FaserNew,"all")*AreaPixel;
+%% save the images in the workspace
+
+% imshowpair(I,FaserNew);
+imagesave(:,:,:,l)= frame2im(getframe(gcf));
+
+%% safe the image to the explorer
+boreholenum = dir(Filenames{(l)});
+boreholenum = boreholenum.name(2:4);
+imwrite(imagesave(:,:,:,l),folderanalysedimages+ "B"+boreholenum+"_bearbeitet.tif");
+% 
+ end
+
+save(folderanalysedimages + "valsheet.mat","AreaFaser");
+% montage(dsbea.Files,"BackgroundColor","w")
